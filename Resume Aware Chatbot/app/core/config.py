@@ -15,16 +15,16 @@ class Settings(BaseSettings):
     version: str = Field(default="1.1.0", description="API version")
     host: str = Field(default="0.0.0.0", description="Host address")
     port: int = Field(default=8000, description="Port number")
-    debug: bool = Field(default=False, description="Debug mode")
+    debug: bool = Field(default=True, description="Debug mode")
     
     # CORS Settings
     allowed_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
+        default=["http://localhost:3000", "http://127.0.0.1:3000", "*"],
         description="Allowed CORS origins"
     )
     
     # Resume Settings
-    resume_path: str = Field(..., description="Path to resume PDF file")
+    resume_path: str = Field(default="C:\\Users\\skothari\\Downloads\\ShreyasKothari Dev_3yrs_FullStack_Java_React_k8s.pdf", description="Path to resume PDF file")
     
     # LLM Settings
     llm_model: str = Field(default="gpt-4o-mini", description="OpenAI model to use")
@@ -40,10 +40,10 @@ class Settings(BaseSettings):
     # Memory Settings
     max_history_per_session: int = Field(default=50, ge=1, description="Max chat history per session")
     
-    # Email Settings
-    smtp_server: str = Field(default="", description="SMTP server")
-    smtp_port: int = Field(default=587, description="SMTP port")
-    email_user: str = Field(default="", description="Email username")
-    email_password: str = Field(default="", description="Email password")
+    # Email Settings (optional)
+    email_address: str = Field(default="", description="Email for notifications")
+    email_app_password: str = Field(default="", description="Email app password")
+    smtp_server: str = Field(default="smtp.gmail.com", description="SMTP server")
+    smtp_port: int = Field(default=465, description="SMTP port")
 
 settings = Settings()

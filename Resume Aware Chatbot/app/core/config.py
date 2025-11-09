@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
     
     # Resume Settings
-    resume_path: str = Field(default="C:\\Users\\skothari\\Downloads\\ShreyasKothari Dev_3yrs_FullStack_Java_React_k8s.pdf", description="Path to resume PDF file")
+    resume_path: str = Field(..., description="Path to resume PDF file")
     
     # LLM Settings
     llm_model: str = Field(default="gpt-4o-mini", description="OpenAI model to use")

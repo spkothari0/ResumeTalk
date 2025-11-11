@@ -50,7 +50,7 @@ def get_retriever(vs: FAISS):
     """
     k = int(os.getenv("RETRIEVER_K", "4"))
     fetch_k = int(os.getenv("RETRIEVER_FETCH_K", "12"))
-    lambda_mult = float(os.getenv("MMR_LAMBDA", "0.7"))
+    lambda_mult = float(os.getenv("MMR_LAMBDA", "0.6"))
     return vs.as_retriever(
         search_type="mmr",
         search_kwargs={"k": k, "fetch_k": fetch_k, "lambda_mult": lambda_mult}
@@ -78,17 +78,22 @@ def build_conv_rag_chain(retriever):
         ("human", "{question}"),
     ])
     
-    # QA prompt — concise, uses resume context only, no external citations
+    # QA prompt — detailed, context-rich, references specific experience, roles, and projects
     qa_prompt = ChatPromptTemplate.from_messages([
         (
             "system",
-            """You are an interview assistant. Answer ONLY using the candidate's resume content
-provided in Context. If the answer is not present in the resume context, respond exactly: "I don't know.".
-Keep answers concise (1-3 short sentences). If you must list items, prefer short numbered or comma-separated items.
-Do not append page numbers or other citations — the resume is short and the client does not need explicit page citations.
+            """
+You are an AI assistant helping with technical interviews. 
+Given the following context from the candidate's resume and previous chat history, answer the interviewer's question in a way that:
+- Clearly states whether the candidate has experience with the mentioned technology.
+- References specific roles, projects, or achievements from the context (such as job titles, personal projects, or industry experience or company name).
+- Is concise but provides enough detail to impress an interviewer (aim for 2-5 sentences).
+- If the answer is not present in the resume context, respond exactly: \"I don't know.\"
+Do not append page numbers or other citations.
 
 Context from resume:
-{context}""",
+{context}
+""",
         ),
         ("human", "{question}"),
     ])

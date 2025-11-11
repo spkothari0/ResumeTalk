@@ -1,6 +1,7 @@
 from typing import Dict, List, Tuple
 from collections import defaultdict
 from app.core.config import settings
+from langchain_core.messages import HumanMessage, AIMessage
 
 class ChatMemoryService:
     def __init__(self):
@@ -28,9 +29,14 @@ class ChatMemoryService:
             return True
         return False
     
-    def get_langchain_format(self, session_id: str) -> List[Tuple[str, str]]:
-        """Get history in LangChain format"""
-        return [(q, a) for q, a in self.get_history(session_id)]
+    def get_langchain_format(self, session_id: str) -> List:
+        """Get history in LangChain message format for MessagesPlaceholder"""
+        history = self.get_history(session_id)
+        messages = []
+        for question, answer in history:
+            messages.append(HumanMessage(content=question))
+            messages.append(AIMessage(content=answer))
+        return messages
     
     def get_all_sessions(self) -> Dict[str, List[Tuple[str, str]]]:
         """Get all active sessions (new method)"""

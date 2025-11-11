@@ -36,20 +36,25 @@ class RAGService:
         """Check if RAG service is ready"""
         return self._initialized and self.chain is not None
     
-    async def query(self, question: str, chat_history: List[Tuple[str, str]]) -> Dict[str, Any]:
-        """Query using latest LangChain invoke pattern"""
+    async def query(self, question: str, chat_history: List) -> Dict[str, Any]:
+        """Query using latest LangChain invoke pattern
+        
+        Args:
+            question: User's question text
+            chat_history: List of LangChain message objects (HumanMessage, AIMessage)
+        """
         if not self.is_ready():
             raise RuntimeError("RAG service not initialized")
         
         try:
-            # Use invoke() method with latest LangChain
-            # the LCEL chain expects the user text under the key "input"
-            # (rag_chain.py references x["input"]). Provide both keys for
-            # backward compatibility but ensure "input" is present.
+            # Use invoke() method with latest LangChain.
+            # Our chain currently reads the user text from "question", but
+            # many LangChain components and community prompts expect "input".
+            # Provide both keys for maximum compatibility.
             result = await self.chain.ainvoke({
                 "input": question,
                 "question": question,
-                "chat_history": chat_history
+                "chat_history": chat_history,
             })
             return result
         except Exception as e:
@@ -59,25 +64,12 @@ class RAGService:
                 result = self.chain.invoke({
                     "input": question,
                     "question": question,
-                    "chat_history": chat_history
+                    "chat_history": chat_history,
                 })
                 return result
             except Exception as sync_e:
                 print(f"Sync invoke also failed: {sync_e}")
                 raise e
-    
-    def format_sources(self, source_docs: List[Any]) -> List[Dict[str, str]]:
-        """Format source documents for response using latest structure"""
-        sources = []
-        for doc in source_docs:
-            if hasattr(doc, 'metadata') and doc.metadata:
-                src = doc.metadata.get("source", "resume.pdf")
-                page = doc.metadata.get("page")
-                sources.append({
-                    "source": os.path.basename(src), 
-                    "page": str(page) if page is not None else "unknown"
-                })
-        return sources
 
 # Global instance
 rag_service = RAGService()

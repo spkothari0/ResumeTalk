@@ -23,21 +23,12 @@ class ChatRequest(BaseModel):
         examples=["user123", "interviewer1"]
     )
 
-class SourceDocument(BaseModel):
-    source: str = Field(description="Source file name")
-    page: str = Field(description="Page number or identifier")
-
 class ChatResponse(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         extra="forbid"
     )
-    
     response: str = Field(description="AI response to the question")
-    sources: List[SourceDocument] = Field(
-        default=[], 
-        description="Source documents with page numbers"
-    )
 
 class HealthResponse(BaseModel):
     status: str = Field(description="Service health status")

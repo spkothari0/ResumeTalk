@@ -13,8 +13,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 # CORRECT IMPORTS for LangChain 1.0+
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough, RunnableBranch
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.runnables import RunnablePassthrough
 
 def _get_embeddings():
     use_local = os.getenv("USE_LOCAL_EMBEDDINGS", "false").lower() == "true"
@@ -60,7 +59,9 @@ def get_retriever(vs: FAISS):
 
 def format_docs(docs):
     """Format retrieved documents into a single string."""
-    return "\n\n".join(doc.page_content for doc in docs)
+    parts = [doc.page_content.strip() for doc in docs]
+    # separate chunks clearly so the model understands chunk boundaries
+    return "\n\n---\n\n".join(parts)
 
 
 def build_conv_rag_chain(retriever):
@@ -74,43 +75,40 @@ def build_conv_rag_chain(retriever):
     condense_question_prompt = ChatPromptTemplate.from_messages([
         ("system", "Given the chat history and a follow-up question, rephrase the follow-up question to be a standalone question. If it's already standalone, return it as is."),
         MessagesPlaceholder(variable_name="chat_history"),
-        ("human", "{input}"),
+        ("human", "{question}"),
     ])
     
-    # QA prompt
+    # QA prompt — concise, uses resume context only, no external citations
     qa_prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an interview assistant that answers ONLY using the candidate's resume content.
-            If the answer is not present in the resume context, say "I don't know."
-            Keep answers concise and helpful for interviews. Use bullet points when listing items.
-            Cite pages if relevant.
+        (
+            "system",
+            """You are an interview assistant. Answer ONLY using the candidate's resume content
+provided in Context. If the answer is not present in the resume context, respond exactly: "I don't know.".
+Keep answers concise (1-3 short sentences). If you must list items, prefer short numbered or comma-separated items.
+Do not append page numbers or other citations — the resume is short and the client does not need explicit page citations.
 
-        Context from resume:
-        {context}"""),
-                MessagesPlaceholder(variable_name="chat_history"),
-                ("human", "{input}"),
-            ])
-    
-    # Build the chain using LCEL
-    def condense_question(inputs):
-        """Condense the question if there's chat history, otherwise pass through."""
-        if inputs.get("chat_history"):
-            return condense_question_prompt | llm | StrOutputParser()
-        else:
-            return RunnablePassthrough()
+Context from resume:
+{context}""",
+        ),
+        ("human", "{question}"),
+    ])
     
     # Create the full chain
     chain = (
         RunnablePassthrough.assign(
             standalone_question=lambda x: (
                 (condense_question_prompt | llm | StrOutputParser()).invoke(x)
-                if x.get("chat_history") else x["input"]
+                if x.get("chat_history") else x["question"]
             )
         )
         | RunnablePassthrough.assign(
             context=lambda x: format_docs(retriever.invoke(x["standalone_question"]))
         )
         | RunnablePassthrough.assign(
-            answer=(qa_prompt | llm | StrOutputParser())
+            answer=lambda x: (qa_prompt | llm | StrOutputParser()).invoke({
+                "question": x["standalone_question"],
+                "context": x["context"]
+            })
         )
     )
     

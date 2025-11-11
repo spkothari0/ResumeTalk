@@ -53,8 +53,7 @@ async def list_sessions():
         "sessions": [
             {
                 "session_id": sid,
-                "message_count": len(history),
-                "last_activity": "unknown"  # Could add timestamps later
+                "message_count": len(history)
             }
             for sid, history in sessions.items()
         ],

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     
     # Resume Settings
     resume_path: str = Field(..., description="Path to resume PDF file")
+    vectorstore_path: str = Field(default=".faiss_index", description="Path to FAISS index directory")
     
     # LLM Settings
     llm_model: str = Field(default="gpt-4o-mini", description="OpenAI model to use")

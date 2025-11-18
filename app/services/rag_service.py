@@ -1,4 +1,8 @@
 import os
+import json
+import hashlib
+import shutil
+from pathlib import Path
 from typing import Dict, List, Any
 from app.core.config import settings
 from resume_loader import load_and_split_resume
@@ -8,6 +12,51 @@ class RAGService:
     def __init__(self):
         self.chain = None
         self._initialized = False
+        self._meta_filename = "meta.json"
+    
+    def _vectorstore_dir(self) -> Path:
+        return Path(settings.vectorstore_path).resolve()
+    
+    def _meta_path(self) -> Path:
+        return self._vectorstore_dir() / self._meta_filename
+    
+    @staticmethod
+    def _sha256_file(path: str) -> str:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    
+    def _read_meta(self) -> Dict[str, Any]:
+        try:
+            p = self._meta_path()
+            if p.is_file():
+                return json.loads(p.read_text())
+        except Exception:
+            pass
+        return {}
+    
+    def _write_meta(self, data: Dict[str, Any]) -> None:
+        try:
+            d = self._vectorstore_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            (d / self._meta_filename).write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            print(f"⚠️ Failed to write meta: {e}")
+    
+    def delete_vectorstore(self) -> bool:
+        """Delete the FAISS vectorstore directory if it exists."""
+        vs_dir = self._vectorstore_dir()
+        if vs_dir.exists():
+            try:
+                shutil.rmtree(vs_dir)
+                print(f"🗑️ Deleted vectorstore at {vs_dir}")
+                return True
+            except Exception as e:
+                print(f"❌ Failed to delete vectorstore at {vs_dir}: {e}")
+                return False
+        return False
     
     async def initialize(self) -> None:
         """Initialize RAG chain and vectorstore using latest LangChain patterns"""
@@ -18,6 +67,13 @@ class RAGService:
             raise RuntimeError(f"RESUME_PATH not set or file not found: {settings.resume_path}")
         
         try:
+            # If index exists but resume changed, wipe it to force rebuild
+            current_hash = self._sha256_file(settings.resume_path)
+            meta = self._read_meta()
+            if meta.get("resume_sha256") and meta.get("resume_sha256") != current_hash:
+                print("♻️ Resume changed detected. Rebuilding vectorstore...")
+                self.delete_vectorstore()
+            
             docs = load_and_split_resume(settings.resume_path)
             if not docs:
                 raise RuntimeError("No text could be extracted from the resume PDF.")
@@ -26,6 +82,11 @@ class RAGService:
             self.chain = bootstrap_rag(docs)
             self._initialized = True
             print(f"✅ RAG chain initialized with {len(docs)} documents")
+            # Persist meta for change detection next time
+            self._write_meta({
+                "resume_sha256": current_hash,
+                "docs_count": len(docs)
+            })
             
         except Exception as e:
             print(f"❌ Failed to initialize RAG chain: {e}")
@@ -69,6 +130,21 @@ class RAGService:
             except Exception as sync_e:
                 print(f"Sync invoke also failed: {sync_e}")
                 raise e
+
+    async def rebuild(self, force_delete: bool = True) -> None:
+        """Rebuild the RAG chain, optionally deleting the vectorstore first."""
+        try:
+            if force_delete:
+                self.delete_vectorstore()
+            # Reset state and re-init
+            self.chain = None
+            self._initialized = False
+            await self.initialize()
+        except Exception:
+            # Keep state consistent on failure
+            self.chain = None
+            self._initialized = False
+            raise
 
 # Global instance
 rag_service = RAGService()

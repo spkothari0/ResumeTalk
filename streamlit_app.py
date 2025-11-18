@@ -147,6 +147,27 @@ def main():
             st.success(f"✅ Resume loaded")
         else:
             st.error(f"❌ Resume not found")
+        
+        st.markdown("---")
+        st.markdown("### Index")
+        st.caption(f"Path: `{settings.vectorstore_path}`")
+        index_exists = os.path.exists(settings.vectorstore_path)
+        if index_exists:
+            st.success("📦 FAISS index found")
+        else:
+            st.warning("📦 FAISS index not built yet")
+        
+        if st.button("♻️ Rebuild Index", help="Delete and rebuild the FAISS index from the current resume"):
+            with st.spinner("Rebuilding index..."):
+                try:
+                    asyncio.run(rag_service.rebuild(True))
+                    # Reset chat state so new answers use rebuilt index
+                    st.session_state.messages = []
+                    chat_memory.clear_session(st.session_state.session_id)
+                    st.success("✅ Index rebuilt successfully.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Rebuild failed: {e}")
     
     # Initialize RAG
     if asyncio.run(initialize_rag()):

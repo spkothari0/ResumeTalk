@@ -79,7 +79,7 @@ async def get_response(question: str):
         sources = result.get("source_documents", [])
         
         # Store in memory
-        chat_memory.add_message(st.session_state.session_id, question, answer)
+        chat_memory.add_exchange(st.session_state.session_id, question, answer)
         
         return answer, sources
     except Exception as e:

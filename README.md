@@ -1,4 +1,4 @@
-# Resume Chatbot (LangChain + FastAPI + Streamlit)
+# Resume Chatbot (LangChain + Streamlit)
 
 Conversational Q&A over a resume using Retrieval-Augmented Generation (RAG).
 This repo provides:
